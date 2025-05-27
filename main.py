@@ -1,16 +1,34 @@
-# backend/main.py
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+from dotenv import load_dotenv
+load_dotenv()
+
+app = FastAPI()
+
+# CORS IMMEDIATELY AFTER app creation
+FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "")
+origins = [o.strip() for o in FRONTEND_ORIGINS.split(",") if o.strip()]
+if not origins:
+    origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# THEN import heavy modules and route code
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 import json
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from scraper import (
     fetch_pages_html_selenium,
@@ -22,24 +40,6 @@ from scraper import (
     save_formatted_data,
 )
 from API_omgevingsloket import get_rd_coordinates, search_plans, get_vlak_by_point
-
-app = FastAPI()
-
-# Allow your deployed front-end domain(s)
-FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "")
-
-# Support comma-separated list or fallback to "*"
-origins = [o.strip() for o in FRONTEND_ORIGINS.split(",") if o.strip()]
-if not origins:
-    origins = ["*"]  # Fallback (e.g., for local testing)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class ScrapeRequest(BaseModel):
     url: str
