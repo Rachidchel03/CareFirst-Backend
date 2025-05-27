@@ -26,7 +26,7 @@ from API_omgevingsloket import get_rd_coordinates, search_plans, get_vlak_by_poi
 app = FastAPI()
 
 # Allow your deployed front-end domain(s)
-FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000")
+FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS")
 origins = [o.strip() for o in FRONTEND_ORIGINS.split(",")]
 
 app.add_middleware(
