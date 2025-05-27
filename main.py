@@ -3,17 +3,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
 from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
 
-# CORS IMMEDIATELY AFTER app creation
+# ✅ CORS added immediately after app creation
 FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "")
 origins = [o.strip() for o in FRONTEND_ORIGINS.split(",") if o.strip()]
 if not origins:
-    origins = ["*"]
+    origins = ["*"]  # fallback for dev
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# THEN import heavy modules and route code
+# ✅ Now import everything else
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from datetime import datetime
@@ -39,20 +38,23 @@ from scraper import (
     save_raw_data,
     save_formatted_data,
 )
+
 from API_omgevingsloket import get_rd_coordinates, search_plans, get_vlak_by_point
+
+# ✅ Add a friendly root route (optional)
+@app.get("/")
+def read_root():
+    return {"message": "CareFirst Backend is running 🎉"}
 
 class ScrapeRequest(BaseModel):
     url: str
     pages: int = 1
     fields: list[str] = []
-@app.get("/")
-def read_root():
-    return {"message": "CareFirst Backend is running"}
 
 @app.post("/api/scrape")
 async def scrape_data(req: ScrapeRequest):
     try:
-        # derive area + timestamp…
+        # (same logic as before...)
         parsed = urlparse(req.url)
         qs = parse_qs(parsed.query)
         area = ""
@@ -76,7 +78,6 @@ async def scrape_data(req: ScrapeRequest):
         time_str = datetime.now().strftime("%H%M%S")
         ts = f"{area_clean}_{date_str}_{time_str}"
 
-        # 1) scrape → markdown → structured listings
         html_pages = fetch_pages_html_selenium(req.url, pages=req.pages, fetch_all=False)
         combined_md = ""
         all_listings: list[dict] = []
@@ -97,7 +98,6 @@ async def scrape_data(req: ScrapeRequest):
                 ls = []
             all_listings.extend(ls)
 
-        # 2) enrich with bestemmingsplan
         for item in all_listings:
             addr = item.get("Adress") or item.get("address") or item.get("adres") or ""
             try:
@@ -113,22 +113,19 @@ async def scrape_data(req: ScrapeRequest):
             except:
                 item["bestemmingsplan"] = []
 
-        # 3) save raw + Excel
         save_raw_data(combined_md, ts)
         container = {"listings": all_listings}
         save_formatted_data(container, ts)
-        # rename output file to {ts}.xlsx
         old = os.path.join("output", f"sorted_data_{ts}.xlsx")
         new = os.path.join("output", f"{ts}.xlsx")
         if os.path.exists(old): os.replace(old, new)
 
-        # ← flattened return shape
         return {
-    "data": {
-        "listings": all_listings
-    },
-    "timestamp": ts
-}
+            "data": {
+                "listings": all_listings
+            },
+            "timestamp": ts
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -148,4 +145,5 @@ def download_excel(timestamp: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
