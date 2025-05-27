@@ -45,6 +45,9 @@ class ScrapeRequest(BaseModel):
     url: str
     pages: int = 1
     fields: list[str] = []
+@app.get("/")
+def read_root():
+    return {"message": "CareFirst Backend is running"}
 
 @app.post("/api/scrape")
 async def scrape_data(req: ScrapeRequest):
