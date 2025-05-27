@@ -8,11 +8,9 @@ from fastapi.responses import FileResponse
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 import json
-
 from dotenv import load_dotenv
 
-load_dotenv()  
-
+load_dotenv()
 
 from scraper import (
     fetch_pages_html_selenium,
@@ -27,9 +25,8 @@ from API_omgevingsloket import get_rd_coordinates, search_plans, get_vlak_by_poi
 
 app = FastAPI()
 
-# At top of file, after imports:
+# Allow your deployed front-end domain(s)
 FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000")
-# split on comma if you want to allow multiple
 origins = [o.strip() for o in FRONTEND_ORIGINS.split(",")]
 
 app.add_middleware(
@@ -40,7 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class ScrapeRequest(BaseModel):
     url: str
     pages: int = 1
@@ -49,34 +45,29 @@ class ScrapeRequest(BaseModel):
 @app.post("/api/scrape")
 async def scrape_data(req: ScrapeRequest):
     try:
-        # ---- derive area + timestamp ----
+        # derive area + timestamp…
         parsed = urlparse(req.url)
         qs = parse_qs(parsed.query)
         area = ""
-        # funda selected_area param (JSON array or raw)
         if "selected_area" in qs:
             raw = qs["selected_area"][0]
             try:
                 arr = json.loads(raw)
                 area = arr[0] if isinstance(arr, list) and arr else raw
-            except json.JSONDecodeError:
+            except:
                 area = raw.strip('[]"\'')
-        # fallback: look for "gemeente-xxx" in path
         if not area:
             for seg in parsed.path.strip("/").split("/"):
                 if seg.startswith("gemeente-"):
-                    area = seg.split("-", 1)[1]
+                    area = seg.split("-",1)[1]
                     break
-        # final fallback: first path segment
         if not area:
             parts = parsed.path.strip("/").split("/")
-            if parts:
-                area = parts[0]
+            if parts: area = parts[0]
         area_clean = area.replace(" ", "_")
         date_str = datetime.now().strftime("%Y%m%d")
         time_str = datetime.now().strftime("%H%M%S")
         ts = f"{area_clean}_{date_str}_{time_str}"
-        # ----------------------------------
 
         # 1) scrape → markdown → structured listings
         html_pages = fetch_pages_html_selenium(req.url, pages=req.pages, fetch_all=False)
@@ -99,36 +90,33 @@ async def scrape_data(req: ScrapeRequest):
                 ls = []
             all_listings.extend(ls)
 
-        # 2) ENRICH each listing with bestemmingsplan
+        # 2) enrich with bestemmingsplan
         for item in all_listings:
             addr = item.get("Adress") or item.get("address") or item.get("adres") or ""
             try:
-                x, y = get_rd_coordinates(addr)
+                x,y = get_rd_coordinates(addr)
                 plan_ids = search_plans(x, y)
-                names: list[str] = []
+                names = []
                 for pid in plan_ids:
                     vlakken = get_vlak_by_point(pid, x, y)
                     for vlak in vlakken:
                         naam = vlak.get("naam") or vlak.get("bestemmingshoofdgroep")
-                        if naam:
-                            names.append(naam)
+                        if naam: names.append(naam)
                 item["bestemmingsplan"] = sorted(set(names))
-            except Exception:
+            except:
                 item["bestemmingsplan"] = []
 
-        # 3) save raw + enriched Excel
+        # 3) save raw + Excel
         save_raw_data(combined_md, ts)
         container = {"listings": all_listings}
-        # this writes to output/sorted_data_{ts}.xlsx
         save_formatted_data(container, ts)
+        # rename output file to {ts}.xlsx
+        old = os.path.join("output", f"sorted_data_{ts}.xlsx")
+        new = os.path.join("output", f"{ts}.xlsx")
+        if os.path.exists(old): os.replace(old, new)
 
-        # immediately rename to output/{ts}.xlsx
-        old_path = os.path.join("output", f"sorted_data_{ts}.xlsx")
-        new_path = os.path.join("output", f"{ts}.xlsx")
-        if os.path.exists(old_path):
-            os.replace(old_path, new_path)
-
-        return {"data": container, "timestamp": ts}
+        # ← flattened return shape
+        return { "listings": all_listings, "timestamp": ts }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -136,7 +124,6 @@ async def scrape_data(req: ScrapeRequest):
 
 @app.get("/api/download-excel")
 def download_excel(timestamp: str):
-    # now looks for output/{timestamp}.xlsx
     path = os.path.join("output", f"{timestamp}.xlsx")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
