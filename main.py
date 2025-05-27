@@ -26,8 +26,12 @@ from API_omgevingsloket import get_rd_coordinates, search_plans, get_vlak_by_poi
 app = FastAPI()
 
 # Allow your deployed front-end domain(s)
-FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS")
-origins = [o.strip() for o in FRONTEND_ORIGINS.split(",")]
+FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "")
+
+# Support comma-separated list or fallback to "*"
+origins = [o.strip() for o in FRONTEND_ORIGINS.split(",") if o.strip()]
+if not origins:
+    origins = ["*"]  # Fallback (e.g., for local testing)
 
 app.add_middleware(
     CORSMiddleware,
@@ -116,7 +120,12 @@ async def scrape_data(req: ScrapeRequest):
         if os.path.exists(old): os.replace(old, new)
 
         # ← flattened return shape
-        return { "listings": all_listings, "timestamp": ts }
+        return {
+    "data": {
+        "listings": all_listings
+    },
+    "timestamp": ts
+}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
