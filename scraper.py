@@ -21,6 +21,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 from PIL import Image
 from io import BytesIO
 import pytesseract
@@ -44,13 +45,18 @@ def setup_selenium():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--remote-debugging-port=9222")  # ✅ Required for headless stability on Render
-    options.add_argument("user-agent=Mozilla/5.0 (...)")
+    temp_profile=tempfile.mkdtemp(prefix="selenium-profile-")
+    options.add_argument(f'--user-data-dir={temp_profile}')
+    options.binary_location= "/usr/bin/chromium"
+
+    service=Service(ChromeDriverManager().install())
+    
+    driver = webdriver.Chrome(service=service, options=options)
+
 
     # ❌ Do NOT use user-data-dir
     # options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")  ← REMOVE THIS
 
-    driver = webdriver.Chrome(options=options)
     return driver
 
 def handle_cookies_and_recaptcha(driver, page_url):
