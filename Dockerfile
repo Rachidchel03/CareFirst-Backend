@@ -1,69 +1,58 @@
-FROM python:3.11-slim
+# ⚙️ Stap 1: Gebruik een lichte basis die Python ondersteunt
+FROM python:3.10-slim
 
-# Install dependencies
+# 📁 Maak werkmap aan
+WORKDIR /app
+
+# 🚀 Zet alle bestanden van je backend project in de container
+COPY . .
+
+# 📦 Systeem dependencies voor Chrome & Selenium
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
-    gnupg \
     curl \
-    libglib2.0-0 \
-    libnss3 \
-    libgconf-2-4 \
-    libfontconfig1 \
-    libxss1 \
-    libappindicator1 \
-    libasound2 \
+    gnupg \
+    ca-certificates \
+    fonts-liberation \
     libatk-bridge2.0-0 \
-    libgtk-3-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libgdk-pixbuf2.0-0 \
+    libnspr4 \
+    libnss3 \
     libx11-xcb1 \
     libxcomposite1 \
-    libxcursor1 \
     libxdamage1 \
-    libxi6 \
-    libxtst6 \
     libxrandr2 \
-    libxfixes3 \
-    libxrender1 \
-    libxext6 \
-    libx11-6 \
-    libxcb1 \
-    fonts-liberation \
-    libdbus-glib-1-2 \
     xdg-utils \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    libu2f-udev \
+    libvulkan1 \
+    libxss1 \
+    libasound2 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Installeer specifieke versie van Chrome
+# 🧊 Chrome installeren (stabiele release)
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt install -y ./google-chrome-stable_current_amd64.deb && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
     rm google-chrome-stable_current_amd64.deb
 
-# Chrome versie check (optioneel)
-RUN google-chrome --version
-
-# Installeer bijbehorende ChromeDriver versie (124 in dit voorbeeld)
+# 🧊 ChromeDriver installeren (versie moet matchen met Chrome)
 ENV CHROMEDRIVER_VERSION=124.0.6367.91
 
 RUN wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" && \
     unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
     rm /tmp/chromedriver.zip && \
     chmod +x /usr/local/bin/chromedriver
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
-# Set work directory
-WORKDIR /app
-
-# Install Python dependencies
+# 🐍 Python dependencies installeren
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
-COPY . .
+# 🌐 Zet de poort variabel voor Render
+ENV PORT=10000
 
-# Expose port
-EXPOSE $PORT
-
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${PORT}"]
+# 🏃 Start FastAPI app met Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
