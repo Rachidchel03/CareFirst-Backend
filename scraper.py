@@ -37,7 +37,15 @@ CAPTCHA=os.getenv("CAPTCHA")
 
 
 def setup_selenium():
+    # 1. auto-install the right chromedriver into your PATH
+    chromedriver_path = chromedriver_autoinstaller.install()
+
+    # 2. configure headless Chromium
     options = Options()
+    # point at the container’s chromium binary
+    options.binary_location = "/usr/bin/chromium"  
+
+    # standard flags for headless + container compat
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -49,9 +57,19 @@ def setup_selenium():
     options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--incognito")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    )
 
-    service = Service("/usr/bin/chromedriver")  # Adjust the path as needed
+    # 3. give Chromium a fresh profile on each launch
+    profile_dir = tempfile.mkdtemp(prefix="chrome-profile-")
+    options.add_argument(f"--user-data-dir={profile_dir}")
+
+    # 4. wire up the Service to the autoinstalled driver
+    service = Service(executable_path=chromedriver_path)
+
+    # 5. launch!
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
