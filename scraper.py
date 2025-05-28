@@ -37,22 +37,21 @@ CAPTCHA=os.getenv("CAPTCHA")
 
 
 def setup_selenium():
-    chromedriver_autoinstaller.install()
-
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-application-cache")
+    options.add_argument("--disable-setuid-sandbox")
+    options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--window-size=1920,1080")
+    options.add_argument("--incognito")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-    # ✅ Verwijder deze regel
-    # temp_profile = tempfile.mkdtemp(prefix="selenium-profile-")
-    # options.add_argument(f'--user-data-dir={temp_profile}')
-
-    options.binary_location = "/usr/bin/chromium"
-
-    service = Service(ChromeDriverManager().install())
+    service = Service("/usr/bin/chromedriver")  # Adjust the path as needed
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
