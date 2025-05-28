@@ -1,30 +1,32 @@
-FROM python:3.10-slim
+RUN apt-get install -y wget xvfb unzip
+# Set up the Chrome PPA -> (not sure if needed)
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+RUN echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
 
-ENV DEBIAN_FRONTEND=noninteractive
+# Update the package list
+RUN apt-get update -y
 
-# Install Chromium + libraries (no chromedriver; we install that in Python at runtime)
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      chromium \
-      wget \
-      unzip \
-      libnss3 libgconf-2-4 libxi6 libatk1.0-0 \
-      libcairo2 libdbus-1-3 libgtk-3-0 libxss1 \
-      fonts-liberation libappindicator3-1 libxtst6 \
- && rm -rf /var/lib/apt/lists/*
+# Set up Chromedriver Environment variables and install chrome
+ENV CHROMEDRIVER_VERSION 114.0.5735.90
+ENV CHROME_VERSION 114.0.5735.90-1
+RUN wget --no-verbose -O /tmp/chrome.deb [https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb](https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_$%7BCHROME_VERSION%7D_amd64.deb) \
+  && apt install -y /tmp/chrome.deb \
+  && rm /tmp/chrome.deb
 
-WORKDIR /app
-
-# Install Python deps (including selenium, chromedriver-autoinstaller, uvicorn, etc.)
+ENV CHROMEDRIVER_DIR /chromedriver
+RUN mkdir $CHROMEDRIVER_DIR
 COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
+# Download and install Chromedriver
+RUN wget -q --continue -P $CHROMEDRIVER_DIR "http://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
+RUN unzip $CHROMEDRIVER_DIR/chromedriver* -d $CHROMEDRIVER_DIR
 
-# Copy your code
+# Put Chromedriver into the PATH
+ENV PATH $CHROMEDRIVER_DIR:$PATH
+
 COPY . .
 
-# Let Render tell us the port at runtime
-ENV PORT=10000
 
 # Start with shell form so $PORT gets expanded
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
