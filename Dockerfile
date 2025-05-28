@@ -2,25 +2,29 @@ FROM python:3.10-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Chromium + its driver in one go
-RUN apt-get update && apt-get install -y \
+# Install Chromium + libraries (no chromedriver; we install that in Python at runtime)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
       chromium \
-      chromium-driver \
       wget \
       unzip \
-      # plus any libs you need for headless
       libnss3 libgconf-2-4 libxi6 libatk1.0-0 \
       libcairo2 libdbus-1-3 libgtk-3-0 libxss1 \
       fonts-liberation libappindicator3-1 libxtst6 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Now chromium and chromedriver are on PATH as `chromium` / `chromedriver`.
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Install Python deps (including selenium, chromedriver-autoinstaller, uvicorn, etc.)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+# Copy your code
 COPY . .
 
+# Let Render tell us the port at runtime
 ENV PORT=10000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+# Start with shell form so $PORT gets expanded
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
