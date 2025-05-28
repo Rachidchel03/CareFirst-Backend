@@ -36,25 +36,27 @@ CAPTCHA=os.getenv("CAPTCHA")
 
 
 def setup_selenium():
-    options = Options()
+     # Auto-install ChromeDriver matching installed Chrome
+    chromedriver_autoinstaller.install()
 
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-    service = Service(r"./chromedriver-win64/chromedriver.exe")  
-    chromedriver_autoinstaller.install()  
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--no-sandbox")
-
-    # ✅ Use a unique user data directory
+    # Create temporary user data directory to avoid profile conflicts
     user_data_dir = tempfile.mkdtemp()
-    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
-    driver = webdriver.Chrome(options=chrome_options)
+    # Configure Chrome options
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument(f"--user-data-dir={user_data_dir}")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
+    # Initialize driver
+    driver = webdriver.Chrome(options=options)
+
+    # Save user data dir for cleanup
+    driver._user_data_dir = user_data_dir
     return driver
 
 def handle_cookies_and_recaptcha(driver, page_url):
