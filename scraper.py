@@ -28,6 +28,7 @@ from twocaptcha import TwoCaptcha
 from openai import OpenAI
 import chromedriver_autoinstaller
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import tempfile
 dotenvpath=find_dotenv()
 load_dotenv(dotenvpath)
 OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
@@ -43,7 +44,17 @@ def setup_selenium():
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
     service = Service(r"./chromedriver-win64/chromedriver.exe")  
     chromedriver_autoinstaller.install()  
-    driver = webdriver.Chrome()
+        chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")
+
+    # ✅ Use a unique user data directory
+    user_data_dir = tempfile.mkdtemp()
+    chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+
+    driver = webdriver.Chrome(options=chrome_options)
+
     return driver
 
 def handle_cookies_and_recaptcha(driver, page_url):
