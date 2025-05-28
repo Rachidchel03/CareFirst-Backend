@@ -45,19 +45,17 @@ def setup_selenium():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-    temp_profile=tempfile.mkdtemp(prefix="selenium-profile-")
-    options.add_argument(f'--user-data-dir={temp_profile}')
-    options.binary_location= "/usr/bin/chromium"
 
-    service=Service(ChromeDriverManager().install())
-    
+    # ✅ Verwijder deze regel
+    # temp_profile = tempfile.mkdtemp(prefix="selenium-profile-")
+    # options.add_argument(f'--user-data-dir={temp_profile}')
+
+    options.binary_location = "/usr/bin/chromium"
+
+    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-
-
-    # ❌ Do NOT use user-data-dir
-    # options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")  ← REMOVE THIS
-
     return driver
+
 
 def handle_cookies_and_recaptcha(driver, page_url):
 
