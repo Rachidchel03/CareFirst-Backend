@@ -16,7 +16,7 @@ if not origins:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["https://carefirst-frontend.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,6 +53,7 @@ class ScrapeRequest(BaseModel):
 
 @app.post("/api/scrape")
 async def scrape_data(req: ScrapeRequest):
+    
     try:
         # (same logic as before...)
         parsed = urlparse(req.url)
