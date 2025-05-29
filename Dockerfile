@@ -1,11 +1,9 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# 1. Base image
+# 1) Base image
 FROM python:3.10-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 2. Install prerequisites (wget for fetching, xvfb for a virtual framebuffer if you need it,
-#    unzip for extracting Chromedriver, gnupg/ca-certificates to add the Chrome PPA)
+# 2) Install prerequisites
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       wget \
@@ -15,7 +13,7 @@ RUN apt-get update \
       ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# 3. Add Google’s Chrome signing key & repo, then install chrome
+# 3) Add Google Chrome’s repo & install Chrome
 RUN wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
      | apt-key add - \
  && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
@@ -24,27 +22,29 @@ RUN wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
  && apt-get install -y --no-install-recommends google-chrome-stable \
  && rm -rf /var/lib/apt/lists/*
 
-# 4. Download & install the matching Chromedriver
-#    (pin the version to match your Chrome release; bump this ARG when you update Chrome)
-ARG CHROMEDRIVER_VERSION=115.0.5790.102
-RUN wget -qO /tmp/chromedriver.zip \
-      "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
+# 4) Auto-detect Chrome’s version and install matching Chromedriver
+RUN CHROME_VER="$(google-chrome-stable --version \
+                  | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" \
+ && CHROME_MAJOR="$(echo $CHROME_VER | cut -d. -f1)" \
+ && DRIVER_VER="$(wget -qO- \
+      https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR})" \
+ && wget -qO /tmp/chromedriver.zip \
+      "https://chromedriver.storage.googleapis.com/${DRIVER_VER}/chromedriver_linux64.zip" \
  && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
  && chmod +x /usr/local/bin/chromedriver \
  && rm /tmp/chromedriver.zip
 
-# 5. Set your app directory, install Python deps
+# 5) Install Python dependencies
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# 6. Copy the rest of your code
+# 6) Copy application code
 COPY . .
 
-# 7. Let Render tell us the port at runtime
+# 7) Let Render inject the port
 ENV PORT=10000
 
-# 8. Launch under Uvicorn, wrapped in xvfb-run (optional) so $PORT expands properly
-CMD ["sh", "-c", "xvfb-run -s '-screen 0 1920x1080x24' uvicorn main:app --host 0.0.0.0 --port 10000"]
-# ──────────────────────────────────────────────────────────────────────────────
+# 8) Start the app on $PORT (wrapped in xvfb-run for safety)
+CMD ["sh", "-c", "xvfb-run -s '-screen 0 1920x1080x24' uvicorn main:app --host 0.0.0.0 --port $PORT"]
