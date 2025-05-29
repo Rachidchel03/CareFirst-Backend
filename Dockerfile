@@ -23,11 +23,9 @@ RUN wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
  && rm -rf /var/lib/apt/lists/*
 
 # 4) Auto-detect Chrome’s version and install matching Chromedriver
-RUN CHROME_VER="$(google-chrome-stable --version \
-                  | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" \
- && CHROME_MAJOR="$(echo $CHROME_VER | cut -d. -f1)" \
- && DRIVER_VER="$(wget -qO- \
-      https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR})" \
+RUN CHROME_VER="$(google-chrome-stable --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')" \
+ && CHROME_MAJOR="${CHROME_VER%%.*}" \
+ && DRIVER_VER="$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR})" \
  && wget -qO /tmp/chromedriver.zip \
       "https://chromedriver.storage.googleapis.com/${DRIVER_VER}/chromedriver_linux64.zip" \
  && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
@@ -43,8 +41,8 @@ RUN pip install --upgrade pip \
 # 6) Copy application code
 COPY . .
 
-# 7) Let Render inject the port
+# 7) Render will inject PORT; default to 10000 if not set
 ENV PORT=10000
 
-# 8) Start the app on $PORT (wrapped in xvfb-run for safety)
+# 8) Start Uvicorn on $PORT (wrapped in xvfb-run so headless Chrome is happy)
 CMD ["sh", "-c", "xvfb-run -s '-screen 0 1920x1080x24' uvicorn main:app --host 0.0.0.0 --port $PORT"]
