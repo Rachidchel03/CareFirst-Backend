@@ -1,48 +1,36 @@
-# 1) Base image
 FROM python:3.10-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 2) Install prerequisites
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      wget \
-      xvfb \
-      unzip \
-      gnupg \
-      ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# Install Chrome and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg wget curl unzip \
+    fonts-liberation libatk-bridge2.0-0 libgtk-3-0 \
+    libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
+    libxext6 libxi6 libxtst6 libnss3 libnspr4 libxss1 libasound2 \
+    && wget -q -O /etc/apt/trusted.gpg.d/google.gpg https://dl.google.com/linux/linux_signing_key.pub \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
+    && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 3) Add Google Chrome’s repo & install Chrome
-RUN wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
-     | apt-key add - \
- && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
-     > /etc/apt/sources.list.d/google-chrome.list \
- && apt-get update \
- && apt-get install -y --no-install-recommends google-chrome-stable \
- && rm -rf /var/lib/apt/lists/*
+# Download matching ChromeDriver
+RUN CHROME_VERSION=$(google-chrome --product-version | cut -d '.' -f 1-3) && \
+    DRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}") && \
+    wget -q -O /tmp/chromedriver.zip "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${DRIVER_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && rm /tmp/chromedriver.zip
 
-# 4) Auto-detect Chrome’s version and install matching Chromedriver
-RUN CHROME_VER="$(google-chrome-stable --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')" \
- && CHROME_MAJOR="${CHROME_VER%%.*}" \
- && DRIVER_VER="$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR})" \
- && wget -qO /tmp/chromedriver.zip \
-      "https://chromedriver.storage.googleapis.com/${DRIVER_VER}/chromedriver_linux64.zip" \
- && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
- && chmod +x /usr/local/bin/chromedriver \
- && rm /tmp/chromedriver.zip
-
-# 5) Install Python dependencies
+# Set work directory
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt
 
-# 6) Copy application code
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
 
-# 7) Render will inject PORT; default to 10000 if not set
-ENV PORT=10000
+# Expose port (optional)
+EXPOSE 10000
 
-# 8) Start Uvicorn on $PORT (wrapped in xvfb-run so headless Chrome is happy)
-CMD ["sh", "-c", "xvfb-run -s '-screen 0 1920x1080x24' uvicorn main:app --host 0.0.0.0 --port $PORT"]
+# Launch the FastAPI app with Uvicorn
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT
