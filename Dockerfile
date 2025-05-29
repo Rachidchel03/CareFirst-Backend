@@ -1,32 +1,50 @@
-RUN apt-get install -y wget xvfb unzip
-# Set up the Chrome PPA -> (not sure if needed)
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
-RUN echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. Base image
+FROM python:3.10-slim
 
-# Update the package list
-RUN apt-get update -y
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Set up Chromedriver Environment variables and install chrome
-ENV CHROMEDRIVER_VERSION 114.0.5735.90
-ENV CHROME_VERSION 114.0.5735.90-1
-RUN wget --no-verbose -O /tmp/chrome.deb [https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb](https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_$%7BCHROME_VERSION%7D_amd64.deb) \
-  && apt install -y /tmp/chrome.deb \
-  && rm /tmp/chrome.deb
+# 2. Install prerequisites (wget for fetching, xvfb for a virtual framebuffer if you need it,
+#    unzip for extracting Chromedriver, gnupg/ca-certificates to add the Chrome PPA)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      wget \
+      xvfb \
+      unzip \
+      gnupg \
+      ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-ENV CHROMEDRIVER_DIR /chromedriver
-RUN mkdir $CHROMEDRIVER_DIR
+# 3. Add Google’s Chrome signing key & repo, then install chrome
+RUN wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub \
+     | apt-key add - \
+ && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+     > /etc/apt/sources.list.d/google-chrome.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends google-chrome-stable \
+ && rm -rf /var/lib/apt/lists/*
+
+# 4. Download & install the matching Chromedriver
+#    (pin the version to match your Chrome release; bump this ARG when you update Chrome)
+ARG CHROMEDRIVER_VERSION=115.0.5790.102
+RUN wget -qO /tmp/chromedriver.zip \
+      "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
+ && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+ && chmod +x /usr/local/bin/chromedriver \
+ && rm /tmp/chromedriver.zip
+
+# 5. Set your app directory, install Python deps
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
-# Download and install Chromedriver
-RUN wget -q --continue -P $CHROMEDRIVER_DIR "http://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
-RUN unzip $CHROMEDRIVER_DIR/chromedriver* -d $CHROMEDRIVER_DIR
 
-# Put Chromedriver into the PATH
-ENV PATH $CHROMEDRIVER_DIR:$PATH
-
+# 6. Copy the rest of your code
 COPY . .
 
+# 7. Let Render tell us the port at runtime
+ENV PORT=10000
 
-# Start with shell form so $PORT gets expanded
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 10000"]
+# 8. Launch under Uvicorn, wrapped in xvfb-run (optional) so $PORT expands properly
+CMD ["sh", "-c", "xvfb-run -s '-screen 0 1920x1080x24' uvicorn main:app --host 0.0.0.0 --port 10000"]
+# ──────────────────────────────────────────────────────────────────────────────
