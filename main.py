@@ -140,7 +140,7 @@ def download_excel(timestamp: str):
     return FileResponse(
         path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=f"{timestamp}.xlsx",
+        filename=f"sorted_data_{timestamp}.xlsx",
     )
 
 
