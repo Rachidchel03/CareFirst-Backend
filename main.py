@@ -134,7 +134,7 @@ async def scrape_data(req: ScrapeRequest):
 
 @app.get("/api/download-excel")
 def download_excel(timestamp: str):
-    path = os.path.join("output", f"{timestamp}.xlsx")
+    path = os.path.join("output", f"sorted_data_{timestamp}.xlsx")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(
