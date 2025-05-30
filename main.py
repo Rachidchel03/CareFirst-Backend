@@ -118,7 +118,7 @@ async def scrape_data(req: ScrapeRequest):
         container = {"listings": all_listings}
         save_formatted_data(container, ts)
         old = os.path.join("output", f"sorted_data_{ts}.xlsx")
-        new = os.path.join("output", f"{ts}.xlsx")
+        new = os.path.join("output", f"sorted_data_{ts}.xlsx")
         if os.path.exists(old): os.replace(old, new)
 
         return {
