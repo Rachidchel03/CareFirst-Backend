@@ -15,4 +15,4 @@ chromedriver-autoinstaller
 requests
 uvicorn
 webdriver-manager
-xlswriter
+xlsxwriter
