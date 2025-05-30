@@ -182,7 +182,7 @@ def construct_funda_page_url(base_url: str, page_num: int) -> str:
     new_query = urlencode(query, doseq=True)
     return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
 def fetch_pages_html_selenium(base_url: str, pages: int = 6, fetch_all: bool = False) -> List[str]:
-    driver = webdriver.Chrome()
+    driver = setup_selenium()
     pages_html = []
     try:
         driver.get(base_url)
